@@ -29,18 +29,24 @@ export default function AdminLock({ children }) {
             <div className="card text-center" style={{ width: '400px', maxWidth: '100%' }}>
                 <div style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    margin: '0 auto var(--spacing-xl)'
+                    margin: '0 auto 40px'
                 }}>
                     <Lock size={40} color="var(--text-main)" />
                 </div>
                 <h2 className="h3 mb-sm">Access Restricted</h2>
                 <p className="text-muted mb-lg">Please enter the admin password to access this page.</p>
 
-                <form onSubmit={handleSubmit} className="flex-col gap-md text-left">
+                <form onSubmit={handleSubmit} autoComplete="off" className="flex-col gap-md text-left">
+                    {/* Dummy inputs to completely defeat Chrome/Safari autofill */}
+                    <input type="text" name="fake_user" style={{ position: 'absolute', top: -9999, left: -9999 }} tabIndex={-1} aria-hidden="true" />
+                    <input type="password" name="fake_pass" style={{ position: 'absolute', top: -9999, left: -9999 }} tabIndex={-1} aria-hidden="true" />
+
                     <div>
                         <label className="text-sm font-bold text-muted mb-xs block uppercase">Password</label>
                         <input
                             type="password"
+                            id="admin_secure_key"
+                            name="admin_secure_key"
                             placeholder="Enter password..."
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
