@@ -20,7 +20,7 @@ let splashShown = false;
 
 function AppRoutes() {
   const { loading } = useStore();
-  const isAdminRoute = window.location.pathname.startsWith('/admin') || window.location.pathname === '/';
+  const isAdminRoute = window.location.pathname.startsWith('/admin');
   const [splashDone, setSplashDone] = useState(() => splashShown || !isAdminRoute);
 
   const handleSplashDone = () => {
