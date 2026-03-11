@@ -32,7 +32,8 @@ function AppRoutes() {
     return <SplashScreen onDone={handleSplashDone} />;
   }
 
-  if (loading) {
+  // Customer page has its own branded splash & data fetching — skip the global admin loader
+  if (loading && isAdminRoute) {
     return (
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
