@@ -14,7 +14,9 @@ export const StoreProvider = ({ children }) => {
     const [sales, setSales] = useState([]);
     const [cart, setCart] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+    const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false); // Controls sensitive tabs lock
+    const [toast, setToast] = useState(null);
+    const [toastExiting, setToastExiting] = useState(false);
 
     // ─── Load All Data on Mount ────────────────────────────────────────────────
     const fetchAll = useCallback(async (showLoading = false) => {
@@ -39,7 +41,9 @@ export const StoreProvider = ({ children }) => {
 
         setProducts(productsData?.map(p => ({
             id: p.id, name: p.name, price: p.price, stock: p.stock,
-            category: p.category, type: p.type, showInPos: p.show_in_pos
+            category: p.category, type: p.type,
+            showInPos: p.show_in_pos,
+            showInCustomer: p.show_in_customer,
         })) ?? []);
 
         setCategories(categoriesData?.map(c => c.name) ?? []);
@@ -74,6 +78,8 @@ export const StoreProvider = ({ children }) => {
             jugReturned: s.jug_returned,
             jugReturnedAt: s.jug_returned_at,
             isDelivery: s.is_delivery,
+            notified: s.notified,
+            source: s.source ?? 'pos',
             items: (s.sale_items ?? []).map(i => ({
                 id: i.product_id,
                 name: i.product_name,
@@ -96,6 +102,7 @@ export const StoreProvider = ({ children }) => {
             category: product.category,
             type: product.type,
             show_in_pos: product.showInPos !== undefined ? product.showInPos : true,
+            show_in_customer: product.showInCustomer !== undefined ? product.showInCustomer : false,
         });
         if (!error) await fetchAll();
     };
@@ -122,10 +129,25 @@ export const StoreProvider = ({ children }) => {
             category: updatedData.category,
             type: updatedData.type,
             show_in_pos: updatedData.showInPos,
+            show_in_customer: updatedData.showInCustomer,
         }).eq('id', productId);
         if (!error) {
             setProducts(prev =>
                 prev.map(p => p.id === productId ? { ...p, ...updatedData } : p)
+            );
+        }
+    };
+
+    const toggleProductCustomerVisibility = async (productId) => {
+        const product = products.find(p => p.id === productId);
+        if (!product) return;
+        const { error } = await supabase
+            .from('products')
+            .update({ show_in_customer: !product.showInCustomer })
+            .eq('id', productId);
+        if (!error) {
+            setProducts(prev =>
+                prev.map(p => p.id === productId ? { ...p, showInCustomer: !p.showInCustomer } : p)
             );
         }
     };
@@ -244,7 +266,7 @@ export const StoreProvider = ({ children }) => {
 
     // ─── Checkout ─────────────────────────────────────────────────────────────
     const processCheckout = async (checkoutData) => {
-        const { customerName, paymentMethod, isDelivery, riderName, jugStatus, address } = checkoutData;
+        const { customerName, paymentMethod, isDelivery, riderName, jugStatus, address, orderSource } = checkoutData;
         const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
         // 1. Insert Sale
@@ -256,6 +278,8 @@ export const StoreProvider = ({ children }) => {
                 payment_method: paymentMethod,
                 jug_status: jugStatus,
                 is_delivery: isDelivery,
+                acknowledged: true,
+                source: orderSource ?? 'pos',
             })
             .select()
             .single();
@@ -312,6 +336,23 @@ export const StoreProvider = ({ children }) => {
         return !error;
     };
 
+    // ─── Toasts ────────────────────────────────────────────────────────────────
+    const dismissToast = useCallback(() => {
+        setToastExiting(true);
+        setTimeout(() => { setToast(null); setToastExiting(false); }, 350);
+    }, []);
+
+    const showToast = useCallback((message) => {
+        setToast(message);
+        setToastExiting(false);
+    }, []);
+
+    useEffect(() => {
+        if (!toast) return;
+        const t = setTimeout(dismissToast, 3000);
+        return () => clearTimeout(t);
+    }, [toast, dismissToast]);
+
     return (
         <StoreContext.Provider value={{
             loading,
@@ -322,10 +363,15 @@ export const StoreProvider = ({ children }) => {
             categories,
             customers,
             riders,
+            toast,
+            toastExiting,
+            showToast,
+            dismissToast,
             addProduct,
             updateProduct,
             deleteProduct,
             toggleProductPosVisibility,
+            toggleProductCustomerVisibility,
             addCategory,
             registerCustomer,
             registerRider,

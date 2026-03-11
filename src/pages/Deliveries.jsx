@@ -4,7 +4,7 @@ import { useStore } from '../context/StoreContext';
 import { Truck, MapPin, User, Package, Plus, ChevronRight, Phone, CheckCircle, Clock, Edit, Trash2, Check, X, Calendar } from 'lucide-react';
 
 export default function Deliveries() {
-    const { deliveries, riders, registerRider, updateRider, deleteRider, customers, updateDeliveryStatus } = useStore();
+    const { deliveries, riders, registerRider, updateRider, deleteRider, customers, updateDeliveryStatus, showToast } = useStore();
 
     const [activeTab, setActiveTab] = useState('deliveries'); // 'deliveries' | 'riders'
     const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
@@ -31,6 +31,7 @@ export default function Deliveries() {
         registerRider(formData);
         setIsRegisterModalOpen(false);
         setFormData({ name: '', contact: '' });
+        showToast('New rider added!');
     };
 
     const [editFormData, setEditFormData] = useState({ id: null, name: '', contact: '', status: 'Active' });
@@ -54,6 +55,7 @@ export default function Deliveries() {
             setSelectedRider(editFormData);
         }
         setIsEditModalOpen(false);
+        showToast('Rider profile updated.');
     };
 
     const openDeleteModal = (rider) => {
@@ -67,6 +69,7 @@ export default function Deliveries() {
             if (selectedRider && selectedRider.id === riderToDelete.id) {
                 setSelectedRider(null);
             }
+            showToast('Rider removed.');
         }
         setIsDeleteModalOpen(false);
         setRiderToDelete(null);
@@ -155,7 +158,7 @@ export default function Deliveries() {
                                                 background: delivery.status === 'Pending' ? 'var(--warning)' :
                                                     delivery.status === 'Canceled' ? 'var(--error)' : 'var(--success)',
                                                 color: 'white',
-                                                fontSize: '0.75rem',
+                                                fontSize: '0.875rem',
                                                 fontWeight: 'bold',
                                                 display: 'inline-flex',
                                                 alignItems: 'center',
@@ -172,7 +175,11 @@ export default function Deliveries() {
                                                 <button
                                                     className="flex items-center justify-center cursor-pointer"
                                                     style={{ color: 'var(--success)', background: 'rgba(34, 197, 94, 0.1)', width: '64px', border: 'none', borderLeft: '1px solid var(--border-light)', transition: 'all 0.2s' }}
-                                                    onClick={(e) => { e.stopPropagation(); updateDeliveryStatus(delivery.id, 'Delivered'); }}
+                                                    onClick={(e) => { 
+                                                        e.stopPropagation(); 
+                                                        updateDeliveryStatus(delivery.id, 'Delivered'); 
+                                                        showToast('Delivery marked as Delivered!');
+                                                    }}
                                                     onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(34, 197, 94, 0.2)'}
                                                     onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(34, 197, 94, 0.1)'}
                                                     title="Mark as Delivered"
@@ -182,7 +189,11 @@ export default function Deliveries() {
                                                 <button
                                                     className="flex items-center justify-center cursor-pointer"
                                                     style={{ color: 'var(--error)', background: 'rgba(239, 68, 68, 0.1)', width: '64px', border: 'none', transition: 'all 0.2s' }}
-                                                    onClick={(e) => { e.stopPropagation(); updateDeliveryStatus(delivery.id, 'Canceled'); }}
+                                                    onClick={(e) => { 
+                                                        e.stopPropagation(); 
+                                                        updateDeliveryStatus(delivery.id, 'Canceled'); 
+                                                        showToast('Delivery Canceled.');
+                                                    }}
                                                     onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
                                                     onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
                                                     title="Cancel Delivery"
@@ -212,11 +223,11 @@ export default function Deliveries() {
                             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                                 <thead style={{ background: 'var(--bg-body)', borderBottom: '1px solid var(--border-light)' }}>
                                     <tr>
-                                        <th className="p-md text-sm text-muted font-medium">Rider Name</th>
-                                        <th className="p-md text-sm text-muted font-medium">Contact</th>
-                                        <th className="p-md text-sm text-muted font-medium">Status</th>
-                                        <th className="p-md text-sm text-muted font-medium">Current Load</th>
-                                        <th className="p-md text-sm text-muted font-medium">Actions</th>
+                                        <th className="p-md text-muted font-medium">Rider Name</th>
+                                        <th className="p-md text-muted font-medium">Contact</th>
+                                        <th className="p-md text-muted font-medium">Status</th>
+                                        <th className="p-md text-muted font-medium">Current Load</th>
+                                        <th className="p-md text-muted font-medium">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -238,12 +249,12 @@ export default function Deliveries() {
                                                     </div>
                                                     {rider.name}
                                                 </td>
-                                                <td className="p-md text-sm text-muted">{rider.contact || 'N/A'}</td>
+                                                <td className="p-md text-muted">{rider.contact || 'N/A'}</td>
                                                 <td className="p-md">
                                                     <span style={{
                                                         padding: '0.25rem 0.75rem',
                                                         borderRadius: '20px',
-                                                        fontSize: '0.75rem',
+                                                        fontSize: '0.875rem',
                                                         background: rider.status === 'Active' ? 'var(--success)' : 'var(--bg-body)',
                                                         color: rider.status === 'Active' ? 'white' : 'var(--text-muted)'
                                                     }}>
@@ -263,14 +274,14 @@ export default function Deliveries() {
                                                             className="btn-icon"
                                                             onClick={(e) => { e.stopPropagation(); openEditModal(rider); }}
                                                         >
-                                                            <Edit size={16} />
+                                                            <Edit size={20} />
                                                         </button>
                                                         <button
                                                             className="btn-icon"
                                                             style={{ color: 'var(--error)' }}
                                                             onClick={(e) => { e.stopPropagation(); openDeleteModal(rider); }}
                                                         >
-                                                            <Trash2 size={16} />
+                                                            <Trash2 size={20} />
                                                         </button>
                                                     </div>
                                                 </td>
@@ -295,9 +306,9 @@ export default function Deliveries() {
                                     <Truck className="text-primary" /> {selectedRider.name}'s Routes
                                     <span style={{
                                         marginLeft: '0.5rem',
-                                        padding: '0.2rem 0.6rem',
+                                        padding: '0.2rem 0.8rem',
                                         borderRadius: '12px',
-                                        fontSize: '0.7rem',
+                                        fontSize: '0.85rem',
                                         background: selectedRider.status === 'Active' ? 'var(--success)' : 'var(--bg-body)',
                                         color: selectedRider.status === 'Active' ? 'white' : 'var(--text-muted)'
                                     }}>

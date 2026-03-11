@@ -1,7 +1,7 @@
 /* src/components/AdminLock.jsx */
 import React, { useState } from 'react';
 import { useStore } from '../context/StoreContext';
-import { Lock, AlertCircle } from 'lucide-react';
+import { Lock, AlertCircle, Smartphone } from 'lucide-react';
 
 export default function AdminLock({ children }) {
     const { isAdminAuthenticated, loginAdmin } = useStore();
@@ -24,8 +24,16 @@ export default function AdminLock({ children }) {
     return (
         <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            height: '100%', flexDirection: 'column', padding: 'var(--spacing-xl)'
+            padding: '2rem', minHeight: '75vh', flexDirection: 'column',
         }} className="fade-in">
+            {/* Landscape Overlay for Portrait View (Even on Login) */}
+            <div id="landscape-requirement">
+                <div className="rotate-icon">
+                    <Smartphone size={64} strokeWidth={1} />
+                </div>
+                <h2 className="h3" style={{ fontWeight: 800 }}>Please Rotate Your Device</h2>
+                <p className="text-muted" style={{ fontSize: '1.1rem' }}>This app works best in landscape orientation.</p>
+            </div>
             <div className="card text-center" style={{ width: '400px', maxWidth: '100%' }}>
                 <div style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -34,7 +42,7 @@ export default function AdminLock({ children }) {
                     <Lock size={40} color="var(--text-main)" />
                 </div>
                 <h2 className="h3 mb-sm">Access Restricted</h2>
-                <p className="text-muted mb-lg">Please enter the admin password to access this page.</p>
+                <p className="text-muted mb-lg">Please enter the admin password to access this sensitive section.</p>
 
                 <form onSubmit={handleSubmit} autoComplete="off" className="flex-col gap-md text-left">
                     {/* Dummy inputs to completely defeat Chrome/Safari autofill */}
@@ -52,15 +60,16 @@ export default function AdminLock({ children }) {
                             onChange={(e) => setPassword(e.target.value)}
                             required
                             autoFocus
-                            autoComplete="new-password"
+                            autoComplete="off"
                             style={{
                                 width: '100%',
                                 padding: '0.8rem',
                                 fontSize: '1.1rem',
                                 borderRadius: 'var(--radius-sm)',
                                 border: '1px solid var(--border-light)',
-                                background: 'var(--bg-body)',
-                                color: 'var(--text-main)'
+                                background: 'var(--bg-surface)',
+                                color: 'var(--text-main)',
+                                outline: 'none'
                             }}
                         />
                     </div>

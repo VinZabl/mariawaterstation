@@ -72,6 +72,31 @@ create table if not exists sales (
 alter table sales add column if not exists jug_returned boolean not null default false;
 alter table sales add column if not exists jug_returned_at timestamptz;
 
+-- Customer menu visibility
+alter table products add column if not exists show_in_customer boolean not null default true;
+
+-- Online order acknowledgement (admin marks order as done)
+alter table sales add column if not exists acknowledged boolean not null default false;
+
+-- GCash number shown on customer ordering page
+alter table app_settings add column if not exists gcash_number text not null default '';
+
+-- Admin UI font size preference
+alter table app_settings add column if not exists font_size text not null default 'default';
+
+-- Realtime setup for online orders
+alter table sales add column if not exists notified boolean not null default false;
+
+-- Order source: 'pos' for staff-placed orders, 'online' for customer-placed orders
+alter table sales add column if not exists source text not null default 'pos';
+
+-- Enable Realtime for relevant tables
+begin;
+  -- Remove existing publication to recreate it properly
+  drop publication if exists supabase_realtime;
+  create publication supabase_realtime for table sales, sale_items, deliveries;
+commit;
+
 
 -- ─── System Settings ────────────────────────────────────────
 create table if not exists app_settings (

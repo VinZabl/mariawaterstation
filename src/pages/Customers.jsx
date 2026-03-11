@@ -4,7 +4,7 @@ import { useStore } from '../context/StoreContext';
 import { User, ShoppingBag, Plus, MapPin, Phone, Calendar, ArrowLeft } from 'lucide-react';
 
 export default function Customers() {
-    const { customers, sales, registerCustomer } = useStore();
+    const { customers, sales, registerCustomer, showToast } = useStore();
 
     const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
     const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -28,6 +28,7 @@ export default function Customers() {
         registerCustomer(formData);
         setIsRegisterModalOpen(false);
         setFormData({ name: '', mobile: '', address: '' });
+        showToast('New customer registered!');
     };
 
     // Derived customer metrics

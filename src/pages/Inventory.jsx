@@ -4,13 +4,14 @@ import { useStore } from '../context/StoreContext';
 import { Plus, Search, Edit, Trash2, FolderPlus, X } from 'lucide-react';
 
 const EMPTY_FORM = {
-    name: '', price: '', stock: '', category: '', type: 'refill', showInPos: true
+    name: '', price: '', stock: '', category: '', type: 'refill', showInPos: true, showInCustomer: false
 };
 
 export default function Inventory() {
     const {
         products, addProduct, updateProduct, deleteProduct,
-        categories, addCategory, toggleProductPosVisibility
+        categories, addCategory, toggleProductPosVisibility,
+        showToast
     } = useStore();
 
     const [searchTerm, setSearchTerm] = useState('');
@@ -44,6 +45,7 @@ export default function Inventory() {
             category: product.category,
             type: product.type,
             showInPos: product.showInPos,
+            showInCustomer: product.showInCustomer,
         });
         setIsProductModalOpen(true);
     };
@@ -71,14 +73,19 @@ export default function Inventory() {
 
         if (editingProduct) {
             updateProduct(editingProduct.id, payload);
+            showToast('Product updated successfully!');
         } else {
             addProduct(payload);
+            showToast('New product added!');
         }
         closeProductModal();
     };
 
     const handleDeleteConfirm = () => {
-        if (deleteTarget) deleteProduct(deleteTarget.id);
+        if (deleteTarget) {
+            deleteProduct(deleteTarget.id);
+            showToast('Product deleted.');
+        }
         setDeleteTarget(null);
     };
 
@@ -88,9 +95,15 @@ export default function Inventory() {
         if (cat && !categories.includes(cat)) {
             addCategory(cat);
             setSelectedCategoryNav(cat);
+            showToast(`Category "${cat}" added!`);
         }
         setIsCategoryModalOpen(false);
         setNewCategoryName('');
+    };
+
+    const quickAssignCategory = async (product, newCategory) => {
+        if (newCategory === product.category) return;
+        await updateProduct(product.id, { ...product, category: newCategory });
     };
 
     // ─── Filtering ──────────────────────────────────────────────────────────
@@ -160,13 +173,13 @@ export default function Inventory() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                     <thead style={{ background: 'var(--bg-body)', borderBottom: '1px solid var(--border-light)' }}>
                         <tr>
-                            <th className="p-md text-sm text-muted font-medium">Product Name</th>
-                            <th className="p-md text-sm text-muted font-medium">Category</th>
-                            <th className="p-md text-sm text-muted font-medium">Type</th>
-                            <th className="p-md text-sm text-muted font-medium">Price</th>
-                            <th className="p-md text-sm text-muted font-medium">Stock</th>
-                            <th className="p-md text-sm text-muted font-medium text-center">Show in POS</th>
-                            <th className="p-md text-sm text-muted font-medium text-right">Actions</th>
+                            <th className="p-md text-muted font-medium">Product Name</th>
+                            <th className="p-md text-muted font-medium">Category</th>
+                            <th className="p-md text-muted font-medium">Type</th>
+                            <th className="p-md text-muted font-medium">Price</th>
+                            <th className="p-md text-muted font-medium">Stock</th>
+                            <th className="p-md text-muted font-medium text-center">Show in POS</th>
+                            <th className="p-md text-muted font-medium text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -174,11 +187,32 @@ export default function Inventory() {
                             <tr key={product.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
                                 <td className="p-md font-medium">{product.name}</td>
                                 <td className="p-md">
-                                    <span style={{ padding: '0.25rem 0.75rem', borderRadius: '20px', background: 'var(--bg-body)', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                                        {product.category}
-                                    </span>
+                                    <select
+                                        value={product.category}
+                                        onChange={(e) => quickAssignCategory(product, e.target.value)}
+                                        style={{
+                                            padding: '0.35rem 2rem 0.35rem 0.85rem',
+                                            borderRadius: '20px',
+                                            background: 'rgba(99, 102, 241, 0.1)',
+                                            fontSize: 'inherit',
+                                            color: 'var(--primary)',
+                                            fontWeight: 600,
+                                            cursor: 'pointer',
+                                            border: '1px solid rgba(99, 102, 241, 0.2)',
+                                            appearance: 'none',
+                                            backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236366f1' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+                                            backgroundRepeat: 'no-repeat',
+                                            backgroundPosition: 'right 0.6rem center',
+                                            backgroundSize: '1rem',
+                                            outline: 'none',
+                                            width: 'auto',
+                                            minWidth: '100px'
+                                        }}
+                                    >
+                                        {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
                                 </td>
-                                <td className="p-md text-sm text-muted">{product.type}</td>
+                                <td className="p-md text-muted">{product.type}</td>
                                 <td className="p-md font-medium">₱{Number(product.price).toFixed(2)}</td>
                                 <td className="p-md">
                                     <span style={{ color: product.stock < 20 ? 'var(--error)' : 'var(--success)' }}>
@@ -186,14 +220,16 @@ export default function Inventory() {
                                     </span>
                                 </td>
                                 <td className="p-md text-center">
-                                    <label style={{ display: 'inline-flex', cursor: 'pointer', alignItems: 'center' }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={product.showInPos !== false}
-                                            onChange={() => toggleProductPosVisibility(product.id)}
-                                            style={{ width: '1.2rem', height: '1.2rem', accentColor: 'var(--primary)', cursor: 'pointer' }}
-                                        />
-                                    </label>
+                                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
+                                        <label style={{ display: 'flex', cursor: 'pointer', alignItems: 'center', justifyContent: 'center' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={product.showInPos !== false}
+                                                onChange={() => toggleProductPosVisibility(product.id)}
+                                                style={{ width: '1.25rem', height: '1.25rem', accentColor: 'var(--primary)', cursor: 'pointer' }}
+                                            />
+                                        </label>
+                                    </div>
                                 </td>
                                 <td className="p-md text-right">
                                     <div className="flex gap-sm justify-end">
@@ -202,7 +238,7 @@ export default function Inventory() {
                                             title="Edit product"
                                             onClick={() => openEditModal(product)}
                                         >
-                                            <Edit size={16} />
+                                            <Edit size={20} />
                                         </button>
                                         <button
                                             className="btn-icon"
@@ -210,7 +246,7 @@ export default function Inventory() {
                                             style={{ color: 'var(--error)' }}
                                             onClick={() => setDeleteTarget(product)}
                                         >
-                                            <Trash2 size={16} />
+                                            <Trash2 size={20} />
                                         </button>
                                     </div>
                                 </td>

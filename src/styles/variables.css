@@ -72,3 +72,8 @@
 
 /* Dark Mode Preference (Optional foundation) */
 /* Dark Mode Removed to force Off-White/Glass Theme */
+
+/* ── Font Size Scales ── */
+html[data-font-size="small"]   { font-size: 16px; }
+html[data-font-size="default"] { font-size: 18px; }
+html[data-font-size="large"]   { font-size: 20px; }

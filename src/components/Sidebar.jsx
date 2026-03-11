@@ -8,17 +8,19 @@ import {
     Truck,
     Users,
     Settings,
-    ReceiptText
+    ReceiptText,
+    Store
 } from 'lucide-react';
 
 export default function Sidebar() {
     const navItems = [
-        { to: '/', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
-        { to: '/pos', icon: <ShoppingCart size={20} />, label: 'Point of Sale' },
-        { to: '/inventory', icon: <Package size={20} />, label: 'Inventory' },
-        { to: '/deliveries', icon: <Truck size={20} />, label: 'Deliveries' },
-        { to: '/customers', icon: <Users size={20} />, label: 'Customers' },
-        { to: '/transactions', icon: <ReceiptText size={20} />, label: 'Transactions' },
+        { to: '/admin', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
+        { to: '/admin/pos', icon: <ShoppingCart size={20} />, label: 'Point of Sale' },
+        { to: '/admin/transactions', icon: <ReceiptText size={20} />, label: 'Transactions' },
+        { to: '/admin/inventory', icon: <Package size={20} />, label: 'Inventory' },
+        { to: '/admin/deliveries', icon: <Truck size={20} />, label: 'Deliveries' },
+        { to: '/admin/customers', icon: <Users size={20} />, label: 'Customers' },
+        { to: '/admin/menu', icon: <Store size={20} />, label: 'Menu Manager' },
     ];
 
     return (
@@ -28,6 +30,7 @@ export default function Sidebar() {
                     <NavLink
                         key={item.to}
                         to={item.to}
+                        end={item.to === '/admin'}
                         className={({ isActive }) =>
                             `sidebar-link flex items-center gap-md ${isActive ? 'active-nav' : ''}`
                         }
@@ -38,9 +41,9 @@ export default function Sidebar() {
                 ))}
             </nav>
 
-            <div className="sidebar-footer">
+            <div className="sidebar-footer" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 <NavLink
-                    to="/settings"
+                    to="/admin/settings"
                     className={({ isActive }) =>
                         `sidebar-btn flex items-center gap-md btn-icon ${isActive ? 'active-nav text-primary' : ''}`
                     }

@@ -1,29 +1,86 @@
 /* src/pages/POS.jsx */
 import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../context/StoreContext';
-import { Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, Truck, User, X, CheckCircle } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, Truck, User, X, CheckCircle, Bell } from 'lucide-react';
 
 export default function POS() {
-    const { products, cart, addToCart, removeFromCart, adjustCartQuantity, clearCart, processCheckout, customers, riders } = useStore();
+    const { 
+        products, cart, addToCart, removeFromCart, adjustCartQuantity, 
+        clearCart, processCheckout, customers, riders, showToast 
+    } = useStore();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('All');
-    const [toast, setToast] = useState(null);
-    const [toastExiting, setToastExiting] = useState(false);
     const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
     const customerInputRef = useRef(null);
 
-    const dismissToast = () => {
-        setToastExiting(true);
-        setTimeout(() => { setToast(null); setToastExiting(false); }, 350);
+    // Online orders
+    const [onlineOrders, setOnlineOrders] = useState([]);
+    const [showOnlineOrders, setShowOnlineOrders] = useState(false);
+    const [newOrderAlert, setNewOrderAlert] = useState(false);
+    const [currentTime, setCurrentTime] = useState(new Date());
+
+    // Update current time every second for live 'time ago' labels
+    useEffect(() => {
+        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+        return () => clearInterval(timer);
+    }, []);
+
+    const getTimeAgo = (dateString) => {
+        const past = new Date(dateString);
+        const diffInSecs = Math.floor((currentTime - past) / 1000);
+        if (diffInSecs < 0) return 'Just now'; // Handle slight client/server drift
+        
+        if (diffInSecs < 60) return `${diffInSecs}sec ago`;
+        const diffInMins = Math.floor(diffInSecs / 60);
+        if (diffInMins < 60) return `${diffInMins}min ago`;
+        const diffInHours = Math.floor(diffInMins / 60);
+        if (diffInHours < 24) return `${diffInHours}hour ago`;
+        const diffInDays = Math.floor(diffInHours / 24);
+        return `${diffInDays}days ago`;
     };
 
-    // Auto-dismiss toast after 3s (then animate out)
+    // Poll for online orders every 1 minute
     useEffect(() => {
-        if (!toast) return;
-        setToastExiting(false);
-        const t = setTimeout(dismissToast, 3000);
-        return () => clearTimeout(t);
-    }, [toast]);
+        const loadOnlineOrders = async (isInitial = false) => {
+            const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+            const { data } = await supabase
+                .from('sales')
+                .select('*, sale_items(*), deliveries(*)')
+                .eq('acknowledged', false)
+                .gte('created_at', since)
+                .order('created_at', { ascending: false });
+            
+            if (data) {
+                // Determine if any order is new before updating state
+                setOnlineOrders(prev => {
+                    const hasNew = data.some(newOrder => !prev.find(old => old.id === newOrder.id));
+                    if (hasNew && !isInitial) {
+                        // Defer side effect to avoid React batching/purity issues
+                        setTimeout(() => showToast(`New online order detected!`), 0);
+                    }
+                    return data;
+                });
+
+                // Alert badge depends on 'notified' column
+                setNewOrderAlert(data.some(o => !o.notified));
+            }
+        };
+
+        loadOnlineOrders(true);
+        const interval = setInterval(() => loadOnlineOrders(false), 60000);
+        return () => clearInterval(interval);
+    }, [showToast]);
+
+    // Mark online orders as notified in the DB
+    const markOrdersAsNotified = async () => {
+        const unnotifiedIds = onlineOrders.filter(o => !o.notified).map(o => o.id);
+        if (unnotifiedIds.length > 0) {
+            await supabase.from('sales').update({ notified: true }).in('id', unnotifiedIds);
+            setOnlineOrders(prev => prev.map(o => ({ ...o, notified: true })));
+        }
+        setNewOrderAlert(false);
+    };
 
     // Lock parent scroll while on POS page
     useEffect(() => {
@@ -47,7 +104,8 @@ export default function POS() {
         isDelivery: false,
         riderName: '',
         address: '',
-        jugStatus: 'none' // 'none', 'owned', or 'borrowed'
+        jugStatus: 'none', // 'none', 'owned', or 'borrowed'
+        orderSource: 'pos', // 'pos' | 'online'
     });
 
     // Handle customer selection from dropdown
@@ -109,47 +167,144 @@ export default function POS() {
             isDelivery: false,
             riderName: '',
             address: '',
-            jugStatus: 'none'
+            jugStatus: 'none',
+            orderSource: 'pos',
         });
-        setToast('Transaction Completed Successfully!');
+        showToast('Transaction Completed Successfully!');
     };
 
     return (
         <div className="flex pos-layout" style={{ gap: 'var(--space-md)', height: 'calc(100vh - 130px)', overflow: 'hidden', position: 'relative' }}>
 
-            {/* ─── Toast Notification ─── */}
-            {toast && (
-                <div style={{
-                    position: 'fixed', top: '1.5rem', right: '1.5rem', zIndex: 9999,
-                    display: 'flex', alignItems: 'center', gap: '0.75rem',
-                    background: 'var(--success)', color: 'white',
-                    padding: '0.85rem 1.25rem', borderRadius: 'var(--radius-md)',
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
-                    animation: toastExiting
-                        ? 'slideOutRight 0.35s ease forwards'
-                        : 'slideInRight 0.3s ease',
-                    maxWidth: '320px', fontWeight: 500, fontSize: '0.95rem'
-                }}>
-                    <CheckCircle size={20} style={{ flexShrink: 0 }} />
-                    <span style={{ flex: 1 }}>{toast}</span>
-                    <button onClick={dismissToast} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', padding: '0', lineHeight: 1 }}>
-                        <X size={16} />
-                    </button>
+            {/* ─── Online Orders Panel ─── */}
+            {showOnlineOrders && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 500 }}>
+                    <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)' }} onClick={() => setShowOnlineOrders(false)} />
+                    <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 380, maxWidth: '95vw', background: 'white', boxShadow: '-4px 0 24px rgba(0,0,0,0.14)', display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <h2 style={{ margin: 0, fontWeight: 700, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <Bell size={18} /> Online Orders
+                                {onlineOrders.length > 0 && (
+                                    <span style={{ background: 'var(--primary)', color: 'white', borderRadius: '20px', padding: '0.1rem 0.55rem', fontSize: '0.75rem', fontWeight: 700 }}>{onlineOrders.length}</span>
+                                )}
+                            </h2>
+                            <button onClick={() => setShowOnlineOrders(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={20} /></button>
+                        </div>
+                        <div style={{ flex: 1, overflowY: 'auto' }}>
+                            {onlineOrders.length === 0 ? (
+                                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2.5rem 1rem', fontSize: '1rem' }}>No online orders in the last 7 days.</p>
+                            ) : onlineOrders.map(order => (
+                                <div key={order.id} style={{ borderBottom: '1px solid var(--border-light)', padding: '1.1rem 1.5rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                                        <div>
+                                            <p style={{ margin: 0, fontWeight: 700, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                                {order.customer_name || 'Online Customer'}
+                                                {(order.source === 'online' || !order.source) && (
+                                                    <span style={{ fontSize: '0.65rem', fontWeight: 700, background: 'rgba(14,165,233,0.12)', color: 'var(--primary)', borderRadius: '10px', padding: '0.1rem 0.5rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Online</span>
+                                                )}
+                                            </p>
+                                            <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-muted)' }}>
+                                                {order.is_delivery ? '🚚 Delivery' : '🏪 Pickup'} · {order.payment_method} · <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{getTimeAgo(order.created_at || order.date)}</span>
+                                            </p>
+                                            {(order.deliveries?.[0]?.address) && (
+                                                <p style={{ margin: '0.15rem 0 0', fontSize: '0.88rem', color: 'var(--text-muted)' }}>📍 {order.deliveries[0].address}</p>
+                                            )}
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                            <span style={{ fontWeight: 800, color: 'var(--primary)', fontSize: '1.05rem', whiteSpace: 'nowrap' }}>₱{Number(order.total).toFixed(2)}</span>
+                                            <button
+                                                title="Cancel / Dismiss order"
+                                                onClick={async () => {
+                                                    await supabase.from('sales').update({ acknowledged: true }).eq('id', order.id);
+                                                    setOnlineOrders(prev => prev.filter(o => o.id !== order.id));
+                                                }}
+                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0.2rem', display: 'flex', flexShrink: 0 }}
+                                            >
+                                                <X size={16} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    {/* Items */}
+                                    <div style={{ background: 'var(--bg-body)', borderRadius: '8px', padding: '0.6rem 0.9rem', marginBottom: '0.75rem' }}>
+                                        {(order.sale_items ?? []).map((item, i) => (
+                                            <p key={i} style={{ margin: '0.2rem 0', fontSize: '0.9rem', color: 'var(--text-main)' }}>
+                                                {item.product_name} <span style={{ color: 'var(--text-muted)' }}>× {item.quantity}</span>
+                                            </p>
+                                        ))}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                        <button
+                                            onClick={() => {
+                                                // 1. Load items into cart
+                                                (order.sale_items ?? []).forEach(item => {
+                                                    const product = products.find(p => p.id === item.product_id);
+                                                    if (product) {
+                                                        for (let i = 0; i < item.quantity; i++) addToCart(product);
+                                                    }
+                                                });
+                                                // 2. Pre-fill all checkout fields from the online order
+                                                setCustomerDetails({
+                                                    customerName: order.customer_name || '',
+                                                    paymentMethod: order.payment_method || 'Cash',
+                                                    isDelivery: !!order.is_delivery,
+                                                    address: order.deliveries?.[0]?.address || '',
+                                                    riderName: order.deliveries?.[0]?.rider || '',
+                                                    jugStatus: order.jug_status || 'none',
+                                                    orderSource: 'online', // preserve origin
+                                                });
+                                                // 3. Open checkout at Review step (skip to step 2)
+                                                setCheckoutStep(2);
+                                                setIsCheckoutOpen(true);
+                                                // 4. Close the online orders panel
+                                                setShowOnlineOrders(false);
+                                            }}
+                                            style={{ flex: 2, padding: '0.6rem 0.5rem', border: 'none', borderRadius: '8px', background: 'var(--primary)', color: 'white', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
+                                        >
+                                            <ShoppingCart size={15} /> Enter on POS
+                                        </button>
+                                        <button
+                                            onClick={async () => {
+                                                await supabase.from('sales').update({ acknowledged: true }).eq('id', order.id);
+                                                setOnlineOrders(prev => prev.filter(o => o.id !== order.id));
+                                            }}
+                                            style={{ flex: 1, padding: '0.6rem 0.5rem', border: '1px solid var(--border-light)', borderRadius: '8px', background: 'transparent', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
+                                        >
+                                            <CheckCircle size={15} /> Done
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 </div>
             )}
+
             {/* Product Grid Area (Left) */}
             <div className="flex-col gap-md pos-products" style={{ flex: 2, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                 {/* Search & Categories */}
                 <div className="flex-col gap-md bg-surface p-md rounded-lg mb-md" style={{ background: 'var(--bg-surface)', borderRadius: 'var(--radius-lg)', padding: '1rem' }}>
-                    <div className="search-input-wrapper" style={{ background: 'transparent' }}>
-                        <Search size={20} className="text-muted" />
-                        <input
-                            type="text"
-                            placeholder="Search products..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="search-input"
-                        />
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <div className="search-input-wrapper" style={{ background: 'transparent', flex: 1 }}>
+                            <Search size={20} className="text-muted" />
+                            <input
+                                type="text"
+                                placeholder="Search products..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="search-input"
+                            />
+                        </div>
+                        {/* Online orders bell */}
+                        <button
+                            onClick={() => { setShowOnlineOrders(true); markOrdersAsNotified(); }}
+                            title="Online orders"
+                            style={{ position: 'relative', background: newOrderAlert ? 'var(--primary)' : 'var(--bg-body)', border: '1px solid var(--border-light)', borderRadius: '10px', padding: '0.5rem 0.6rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: newOrderAlert ? 'white' : 'var(--text-muted)', flexShrink: 0, transition: 'background 0.2s' }}
+                        >
+                            <Bell size={18} />
+                            {onlineOrders.length > 0 && (
+                                <span style={{ position: 'absolute', top: -6, right: -6, background: '#ef4444', color: 'white', borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: 700 }}>{onlineOrders.length}</span>
+                            )}
+                        </button>
                     </div>
                     <div className="flex gap-sm" style={{ overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none' }}>
                         {categories.map(cat => (
@@ -364,9 +519,9 @@ export default function POS() {
                                         style={{ fontSize: '1rem', paddingRight: '2.5rem' }}
                                         autoComplete="off"
                                     />
-                                    {/* Dropdown arrow */}
-                                    <span style={{ position: 'absolute', right: '0.75rem', top: '60%', pointerEvents: 'none', color: 'var(--text-muted)' }}>
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9" /></svg>
+                                    {/* Dropdown arrow — solid triangle matching native selects */}
+                                    <span style={{ position: 'absolute', right: '0.75rem', top: '60%', pointerEvents: 'none', color: 'var(--text-muted)', fontSize: '0.75rem', lineHeight: 1 }}>
+                                        ▼
                                     </span>
 
                                     {/* Custom dropdown panel */}

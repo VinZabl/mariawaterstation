@@ -1,11 +1,19 @@
 import React, { useState } from 'react';
 import { useStore } from '../context/StoreContext';
-import { Search, Receipt, Calendar, ArrowUpRight, Filter, X } from 'lucide-react';
+import { Search, Receipt, Calendar, ArrowUpRight, Filter, X, FileDown } from 'lucide-react';
+import { exportTransactionsPdf } from '../utils/pdfExport';
 
 export default function Transactions() {
     const { sales, markJugReturned } = useStore();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedTransaction, setSelectedTransaction] = useState(null);
+    const [exporting, setExporting] = useState(false);
+
+    const handleExportPdf = async () => {
+        setExporting(true);
+        await exportTransactionsPdf(filteredSales);
+        setExporting(false);
+    };
 
     const filteredSales = sales.filter(sale =>
         sale.id.toString().includes(searchTerm) ||
@@ -16,6 +24,14 @@ export default function Transactions() {
         <div className="fade-in">
             <div className="flex justify-between items-center mb-lg">
                 <h2 className="h3">Transaction History</h2>
+                <button
+                    onClick={handleExportPdf}
+                    disabled={exporting}
+                    className="btn btn-secondary flex items-center gap-sm"
+                >
+                    <FileDown size={18} />
+                    {exporting ? 'Exporting…' : 'Export PDF'}
+                </button>
             </div>
 
             <div className="flex gap-md mb-sm">
@@ -45,6 +61,7 @@ export default function Transactions() {
                                 <th className="p-md text-sm text-muted font-medium">Date & Time</th>
                                 <th className="p-md text-sm text-muted font-medium">Customer</th>
                                 <th className="p-md text-sm text-muted font-medium">Items</th>
+                                <th className="p-md text-sm text-muted font-medium">Type</th>
                                 <th className="p-md text-sm text-muted font-medium">Payment</th>
                                 <th className="p-md text-sm text-muted font-medium">Jug Status</th>
                                 <th className="p-md text-sm text-muted font-medium text-right">Total</th>
@@ -65,6 +82,18 @@ export default function Transactions() {
                                     </td>
                                     <td className="p-md">{sale.customerName}</td>
                                     <td className="p-md text-sm text-muted">{sale.items.length} items</td>
+                                    <td className="p-md">
+                                        <span style={{
+                                            padding: '0.15rem 0.6rem',
+                                            borderRadius: '12px',
+                                            fontSize: '0.75rem',
+                                            fontWeight: 700,
+                                            background: sale.source === 'online' ? 'rgba(14,165,233,0.12)' : 'var(--bg-body)',
+                                            color: sale.source === 'online' ? 'var(--primary)' : 'var(--text-muted)',
+                                        }}>
+                                            {sale.source === 'online' ? 'Online' : 'On-Site'}
+                                        </span>
+                                    </td>
                                     <td className="p-md">
                                         <span style={{
                                             padding: '0 0.6rem',
@@ -100,7 +129,7 @@ export default function Transactions() {
                             ))}
                             {filteredSales.length === 0 && (
                                 <tr>
-                                    <td colSpan="6" className="p-xl text-center text-muted">
+                                    <td colSpan="8" className="p-xl text-center text-muted">
                                         <div className="flex-col items-center gap-sm">
                                             <Receipt size={40} style={{ opacity: 0.2 }} />
                                             <p>No transactions found.</p>
@@ -144,6 +173,21 @@ export default function Transactions() {
                             <div className="p-md" style={{ background: 'var(--bg-body)', borderRadius: 'var(--radius-sm)' }}>
                                 <p className="text-xs text-muted font-bold mb-xs uppercase">Payment</p>
                                 <p className="font-medium">{selectedTransaction.paymentMethod}</p>
+                            </div>
+                            <div className="p-md" style={{ background: 'var(--bg-body)', borderRadius: 'var(--radius-sm)', gridColumn: '1 / -1' }}>
+                                <p className="text-xs text-muted font-bold mb-xs uppercase">Order Type</p>
+                                <span style={{
+                                    display: 'inline-block',
+                                    padding: '0.2rem 0.75rem',
+                                    borderRadius: '12px',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 700,
+                                    background: selectedTransaction.source === 'online' ? 'rgba(14,165,233,0.12)' : 'var(--bg-body)',
+                                    color: selectedTransaction.source === 'online' ? 'var(--primary)' : 'var(--text-muted)',
+                                    border: selectedTransaction.source === 'online' ? '1px solid rgba(14,165,233,0.3)' : '1px solid var(--border-light)',
+                                }}>
+                                    {selectedTransaction.source === 'online' ? '🌐 Online Order' : '🏪 On-Site'}
+                                </span>
                             </div>
                             <div className="p-md" style={{ background: 'var(--bg-body)', borderRadius: 'var(--radius-sm)', gridColumn: '1 / -1' }}>
                                 <div className="flex justify-between items-center">
